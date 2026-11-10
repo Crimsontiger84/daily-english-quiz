@@ -1,7 +1,8 @@
 import { h } from "./components/dom.js";
 import { ProgressBar } from "./components/ProgressBar.js";
 import { QuizCard } from "./components/QuizCard.js";
-import { ResultModal } from "./components/ResultModal.js";
+import { ResultModal, resultPayload } from "./components/ResultModal.js";
+import * as logsync from "./engine/logsync.js";
 import { ReviewNote } from "./components/ReviewNote.js";
 import { buildDailySet, todayKey } from "./engine/quiz.js";
 import * as store from "./engine/store.js";
@@ -17,7 +18,55 @@ async function loadJson(path) {
   return res.json();
 }
 
+// ── 구글 시트 기록 ─────────────────────────────────────────────
+let logNote = ""; // 마지막 전송 결과(홈 화면에 표시)
+
+function logStatusText() {
+  if (!store.loadLogConfig()) return "기록 저장: 꺼짐";
+  const waiting = store.loadOutbox().length;
+  return `기록 저장: 구글 시트 연결됨${waiting ? ` · 대기 ${waiting}건` : ""}${logNote ? ` · ${logNote}` : ""}`;
+}
+
+function refreshLogStatus() {
+  const el = document.getElementById("log-status");
+  if (el) el.textContent = logStatusText();
+}
+
+// 못 보낸 기록을 순서대로 보낸다. 실패한 것은 남겨 두고 다음에 다시 시도한다.
+async function flushOutbox() {
+  const cfg = store.loadLogConfig();
+  if (!cfg) return;
+  for (const payload of store.loadOutbox()) {
+    try {
+      const result = await logsync.send(cfg, payload);
+      store.saveOutbox(store.loadOutbox().filter((p) => p.runId !== payload.runId));
+      logNote = result === "saved" ? `${payload.date} 저장됨` : `${payload.date} 전송함`;
+    } catch (err) {
+      logNote = `전송 실패(${err.message}) — 다음에 다시 시도해요`;
+      break;
+    }
+  }
+  refreshLogStatus();
+}
+
+function queueLog() {
+  const payload = resultPayload(day, store.deviceId());
+  store.saveOutbox([...store.loadOutbox().filter((p) => p.runId !== payload.runId), payload]);
+  flushOutbox();
+}
+
+// 연동 링크를 주소 뒤에 붙여 열면(#log=…) 그 기기에 저장하고 주소에서 지운다.
+function readSetupLink() {
+  const m = location.hash.match(/^#log=(.+)$/);
+  if (!m) return;
+  const cfg = logsync.parseLink(decodeURIComponent(m[1]));
+  if (cfg) store.saveLogConfig(cfg);
+  history.replaceState(null, "", location.pathname + location.search);
+}
+
 async function init() {
+  readSetupLink();
+  flushOutbox();
   day = store.loadDay(today);
   // 문항 구성이 바뀌었으면, 아직 풀기 시작하지 않은 세트는 새 구성으로 다시 만든다.
   if (day && day.v !== SET_VERSION && day.answers.length === 0) day = null;
@@ -62,7 +111,47 @@ function showHome() {
       h("div", { class: "stat" }, h("strong", {}, `${reviewCount}`), h("span", {}, "복습 노트"))
     ),
     cta,
-    h("button", { class: "btn btn--ghost btn--big", type: "button", onclick: showReview }, "복습 노트")
+    h("button", { class: "btn btn--ghost btn--big", type: "button", onclick: showReview }, "복습 노트"),
+    h("button", { class: "linkbtn", type: "button", id: "log-status", onclick: showLogSettings }, logStatusText())
+  ));
+}
+
+function showLogSettings() {
+  const cfg = store.loadLogConfig();
+  const input = h("input", { class: "input", type: "url", placeholder: "https://script.google.com/macros/s/…/exec?key=…", autocomplete: "off", autocapitalize: "off", spellcheck: false, "aria-label": "연동 링크" });
+  const msg = h("p", { class: "view__lead", "aria-live": "polite" }, cfg ? "현재 연결되어 있어요. 퀴즈를 끝내면 결과가 자동으로 시트에 저장됩니다." : "아직 연결되지 않았어요.");
+
+  const save = async () => {
+    const next = logsync.parseLink(input.value);
+    if (!next) { msg.textContent = "링크 형식이 맞지 않아요. script.google.com 으로 시작하고 ?key= 가 붙은 링크를 붙여 넣어 주세요."; return; }
+    msg.textContent = "연결을 확인하는 중…";
+    try {
+      if (!(await logsync.test(next))) { msg.textContent = "연동 키가 맞지 않아요. 링크를 다시 확인해 주세요."; return; }
+      store.saveLogConfig(next);
+      msg.textContent = "연결됐어요. 밀린 기록이 있으면 지금 보냅니다.";
+      input.value = "";
+      flushOutbox();
+    } catch {
+      // 일부 브라우저는 확인 응답을 읽지 못한다. 저장은 하고, 실제 기록으로 확인하게 한다.
+      store.saveLogConfig(next);
+      msg.textContent = "링크를 저장했어요. 연결 확인 응답은 읽지 못했으니, 퀴즈를 한 번 끝낸 뒤 시트에 기록이 생기는지 확인해 주세요.";
+      flushOutbox();
+    }
+  };
+
+  show(h("section", { class: "view" },
+    h("header", { class: "view__head" },
+      h("button", { class: "btn btn--ghost btn--small", type: "button", onclick: showHome }, "← 홈"),
+      h("h2", {}, "기록 저장 설정")
+    ),
+    h("p", { class: "view__lead" }, "퀴즈 결과를 내 구글 시트에 자동으로 저장합니다. 연동 링크는 이 기기에만 저장되고 다른 곳으로 보내지 않습니다."),
+    msg,
+    h("form", { class: "answer", onsubmit: (e) => { e.preventDefault(); save(); } },
+      input,
+      h("button", { class: "btn btn--primary", type: "submit" }, cfg ? "링크 바꾸기" : "연결하기")
+    ),
+    cfg && h("button", { class: "btn btn--ghost", type: "button", onclick: () => { store.saveLogConfig(null); logNote = ""; showLogSettings(); } }, "연결 끊기"),
+    day.done && cfg && h("button", { class: "btn btn--ghost", type: "button", onclick: () => { queueLog(); msg.textContent = "오늘 결과를 다시 보냈어요."; } }, "오늘 결과 다시 보내기")
   ));
 }
 
@@ -107,6 +196,7 @@ function finish() {
     day.done = true;
     store.saveDay(day);
     store.recordResult(today, day.answers.filter((a) => a.correct).length, day.questions.length, day.questions.map((q) => q.src));
+    queueLog(); // 연결돼 있으면 바로 전송, 아니면 연결될 때까지 보관
   }
   showHome();
   showResult();

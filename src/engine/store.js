@@ -69,6 +69,20 @@ export function scheduledCount() {
   return Object.keys(loadSrs()).length;
 }
 
+// ── 구글 시트 기록 연동. logConfig: {url, key} | null, outbox: 아직 못 보낸 기록들
+export const loadLogConfig = () => read("logConfig", null);
+export const saveLogConfig = (cfg) => write("logConfig", cfg);
+export const loadOutbox = () => read("outbox", []);
+export const saveOutbox = (list) => write("outbox", list.slice(-30));
+export function deviceId() {
+  let id = read("device", null);
+  if (!id) {
+    id = Math.random().toString(36).slice(2, 8);
+    write("device", id);
+  }
+  return id;
+}
+
 // ── 복습 노트: 틀린 문항(문항 전체를 저장해 다시 풀 수 있게 한다). 같은 문항은 최신 기록 하나만.
 export const loadReview = () => read("review", []);
 export function addReview(item) {

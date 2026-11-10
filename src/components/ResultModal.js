@@ -8,6 +8,18 @@ function message(score, total) {
   return "틀린 문제는 내일 다시 나와요";
 }
 
+// 구글 시트로 보낼 기록
+export function resultPayload(day, device) {
+  return {
+    runId: `${day.date}-${device}`, date: day.date, device,
+    score: day.answers.filter((a) => a.correct).length, total: day.questions.length,
+    items: day.questions.map((q, i) => ({
+      n: i + 1, label: q.label, review: !!q.review, prompt: prompt(q), answer: answer(q),
+      your: day.answers[i].your, correct: day.answers[i].correct, explain: q.explain ?? "",
+    })),
+  };
+}
+
 const prompt = (q) => (q.type === "write" ? q.ko : [q.ask, q.text, q.ko && `(${q.ko})`].filter(Boolean).join(" "));
 const answer = (q) => q.model ?? q.full;
 
