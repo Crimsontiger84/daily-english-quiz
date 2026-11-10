@@ -31,6 +31,8 @@ scripts/sync_notion.py        데이터 규격 검사
 - 로컬 실행: `python -m http.server 8765` 후 http://localhost:8765 (ES 모듈이라 파일을 직접 열면 동작하지 않는다).
 - Notion 동기화: MCP로 `[2026]English Diary`(collection://2dc5d750-ba6c-80c8-8fe6-000b140a8e95)에서 `diary.json`의 마지막 날짜 이후 행을 가져와 추가한다. `cloze`의 `{{ }}`, 한국어 뜻·해석을 함께 작성하고 `python scripts/sync_notion.py --check`를 통과시킨다.
 - `[2025]English Diary`(collection://22b5d750-ba6c-803b-8c14-000b63160ce7)는 위키 DB라 SQL 조회가 안 된다. 뷰 `view://22b5d750-ba6c-8090-b800-000ca62461dd`로 조회한다. 2025분은 이미 모두 반영했고 더 늘지 않는다.
+- 시험 기록: 사용자가 앱의 "채점 결과 복사" 내용을 붙여 주면 노션 「Daily English Quiz 학습 기록」(https://app.notion.com/p/4145d750ba6c812699bccc8bf0702f5f)의 "시험 기록" 아래, 최신이 맨 위에 오도록 추가한다.
+- 구동사 문항은 보기 선택형으로 내지 않는다. 문장 전체를 보여 주는 빈칸 쓰기와 영작만 쓴다.
 - 구동사 동기화: Google Drive 커넥터로 문서 `1HbUKGg-2UHZGsfKycQidmuzvzygQjEvJMkdakKlN0aw`를 읽어 `phrasal_verbs.json`의 `groups`를 갱신한다.
 - 데이터 구조나 문항 유형을 바꾸면 `docs/specs/quiz_flow.md`를 같이 고친다.
 - 보고는 간결하게: 바뀐 파일, 실행할 명령, 다음 단계 순으로.

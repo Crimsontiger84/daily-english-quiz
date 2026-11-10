@@ -2,7 +2,7 @@
 // 학습일은 오전 8시에 바뀐다.
 // 구성(쉬운 것 → 어려운 것 순서)
 //   다이어리 6: 뜻 고르기 1 · 표현 고르기 1 · 빈칸 쓰기 2 · 영작 2
-//   구동사   4: 전치사 고르기 2 · 전치사 쓰기 1 · 문장 영작 1
+//   구동사   4: 문장 빈칸 쓰기 2 · 문장 영작 2 (보기에서 고르는 문항 없음)
 // 복습 예정(due) 항목은 직접 써야 하는 문항 자리에 먼저 배치한다.
 
 const RESET_HOUR = 8;
@@ -124,33 +124,23 @@ export function buildDailySet(date, diary, phrasalGroups, recentIds = [], dueKey
 
   // ── 구동사 4: 복습 예정 항목은 직접 쓰는 자리(전치사 쓰기, 영작)에 먼저 넣는다.
   const pvs = flattenPhrasals(phrasalGroups);
-  const particles = pvs.map((p) => parseCloze(p.cloze).answer);
-  const [pType, pWrite, pc1, pc2] = pick(pvs, 4, rnd, { avoid, due: dueOf("pv"), key: (p) => p.phrase });
+  // 구동사는 문장에 따라 뜻이 달라지므로 보기에서 고르는 문항은 내지 않는다.
+  // 항상 문장 전체와 그 문장에서의 뜻(해석)을 보여 주고, 빈칸을 직접 쓰거나 문장을 통째로 쓴다.
+  const picked = pick(pvs, 4, rnd, { avoid, due: dueOf("pv"), key: (p) => p.phrase });
   const pvQs = [
-    ...[pc1, pc2].map(({ item: p, review }) => {
-      const c = parseCloze(p.cloze);
-      // "up" vs "up with"처럼 겹치는 보기는 정답이 모호해지므로 뺀다.
-      const pool = particles.filter((x) => !x.startsWith(c.answer) && !c.answer.startsWith(x));
-      return {
-        id: `p-choice-${p.id}`, src: p.id, srs: `pv:${p.id}`, part: "phrasal", type: "choice", review,
-        label: "구동사 · 전치사 고르기", text: c.text, ko: p.ko,
-        choices: options(c.answer, pool, rnd), answer: c.answer, full: c.full, explain: `${p.phrase} — ${p.meaning}`,
-      };
-    }),
-    (() => {
-      const { item: p, review } = pType;
+    ...picked.slice(0, 2).map(({ item: p, review }) => {
       const c = parseCloze(p.cloze);
       return {
         id: `p-cloze-${p.id}`, src: p.id, srs: `pv:${p.id}`, part: "phrasal", type: "cloze", review,
-        label: "구동사 · 전치사 쓰기", ...c, ko: p.ko,
+        label: "구동사 · 문장 빈칸 쓰기", ...c, ko: p.ko,
         hint: `첫 글자: ${c.answer[0]} (${c.answer.length}글자)`, explain: `${p.phrase} — ${p.meaning}`,
       };
-    })(),
-    {
-      id: `p-write-${pWrite.item.id}`, src: pWrite.item.id, srs: `pv:${pWrite.item.id}`, part: "phrasal", type: "write", review: pWrite.review,
-      label: "구동사 · 문장 영작", ko: pWrite.item.ko, model: parseCloze(pWrite.item.cloze).full,
-      hint: `${pWrite.item.phrase} — ${pWrite.item.meaning}`, explain: `${pWrite.item.phrase} — ${pWrite.item.meaning}`,
-    },
+    }),
+    ...picked.slice(2).map(({ item: p, review }) => ({
+      id: `p-write-${p.id}`, src: p.id, srs: `pv:${p.id}`, part: "phrasal", type: "write", review,
+      label: "구동사 · 문장 영작", ko: p.ko, model: parseCloze(p.cloze).full,
+      hint: `${p.phrase} 사용`, explain: `${p.phrase} — ${p.meaning}`,
+    })),
   ];
 
   return { date, questions: [...diaryQs, ...pvQs] };
