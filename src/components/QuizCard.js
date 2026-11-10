@@ -8,7 +8,10 @@ export function QuizCard({ q, index, total, isLast, onAnswer, onNext }) {
   const nextBtn = h("button", { class: "btn btn--primary", type: "button", onclick: onNext }, isLast ? "결과 보기" : "다음 문제");
 
   const head = h("header", { class: "card__head" },
-    h("span", { class: `tag tag--${q.part}` }, q.label),
+    h("span", { class: "card__tags" },
+      h("span", { class: `tag tag--${q.part}` }, q.label),
+      q.review && h("span", { class: "tag tag--review" }, "복습")
+    ),
     h("span", { class: "card__count" }, `${index + 1} / ${total}`)
   );
 
@@ -36,14 +39,16 @@ export function QuizCard({ q, index, total, isLast, onAnswer, onNext }) {
           });
           const correct = c === q.answer;
           if (!correct) buttons.find((b) => b.textContent === c).classList.add("is-picked-wrong");
-          settle(correct, c, [h("p", { class: "feedback__model" }, q.full), h("p", { class: "feedback__note" }, q.explain)]);
+          settle(correct, c, [h("p", { class: "feedback__model" }, q.full), q.explain && h("p", { class: "feedback__note" }, q.explain)]);
         },
       }, c)
     );
+    const long = q.choices.some((c) => c.length > 7);
     body = [
+      q.ask && h("p", { class: "card__ask" }, q.ask),
       h("p", { class: "card__sentence" }, q.text),
-      h("p", { class: "card__ko" }, q.ko),
-      h("div", { class: "choices" }, buttons),
+      q.ko && h("p", { class: "card__ko" }, q.ko),
+      h("div", { class: `choices ${long ? "choices--stack" : ""}` }, buttons),
     ];
   } else {
     const isCloze = q.type === "cloze";
@@ -66,8 +71,8 @@ export function QuizCard({ q, index, total, isLast, onAnswer, onNext }) {
 
         if (isCloze) {
           settle(isExact(your, q.answer), your, [
-            h("p", { class: "feedback__model" }, q.text.replace("_____", q.answer)),
-            h("p", { class: "feedback__note" }, q.hint),
+            h("p", { class: "feedback__model" }, q.full),
+            h("p", { class: "feedback__note" }, q.explain),
           ]);
           return;
         }
@@ -75,7 +80,7 @@ export function QuizCard({ q, index, total, isLast, onAnswer, onNext }) {
         const pct = Math.round(similarity(your, q.model) * 100);
         const judge = (correct) => () => settle(correct, your, [
           h("p", { class: "feedback__model" }, q.model),
-          q.hint && h("p", { class: "feedback__note" }, q.hint),
+          q.explain && h("p", { class: "feedback__note" }, q.explain),
         ]);
         feedback.replaceChildren(
           h("p", { class: "feedback__label" }, "모범 답안"),
@@ -100,6 +105,6 @@ export function QuizCard({ q, index, total, isLast, onAnswer, onNext }) {
     queueMicrotask(() => input.focus({ preventScroll: true }));
   }
 
-  card.append(head, ...body, feedback, q.from && h("p", { class: "card__from" }, `출처: 내 일기 ${q.from}`) || "");
+  card.append(head, ...body.filter(Boolean), feedback, q.from ? h("p", { class: "card__from" }, `출처: 내 일기 ${q.from}`) : "");
   return card;
 }

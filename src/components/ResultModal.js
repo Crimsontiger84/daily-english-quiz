@@ -1,6 +1,12 @@
 import { h } from "./dom.js";
 
-const MESSAGE = ["내일 다시 도전해요", "시작이 반이에요", "조금만 더!", "절반 넘었어요", "좋아요!", "거의 다 왔어요", "완벽해요!"];
+function message(score, total) {
+  const r = score / total;
+  if (r === 1) return "완벽해요!";
+  if (r >= 0.8) return "거의 다 왔어요";
+  if (r >= 0.5) return "절반 넘었어요";
+  return "틀린 문제는 내일 다시 나와요";
+}
 
 // 오늘 결과 모달(<dialog>). 닫으면 onClose, 복습 노트로 가면 onReview.
 export function ResultModal({ day, streak, onClose, onReview }) {
@@ -13,8 +19,8 @@ export function ResultModal({ day, streak, onClose, onReview }) {
     return h("li", { class: `result__row ${a.correct ? "ok" : "no"}` },
       h("span", { class: "result__mark", "aria-hidden": "true" }, a.correct ? "○" : "×"),
       h("span", { class: "result__text" },
-        h("span", { class: "result__label" }, q.label),
-        h("span", { class: "result__answer" }, q.model ?? q.full ?? q.text.replace("_____", q.answer))
+        h("span", { class: "result__label" }, q.review ? `${q.label} · 복습` : q.label),
+        h("span", { class: "result__answer" }, q.model ?? q.full)
       )
     );
   });
@@ -22,7 +28,7 @@ export function ResultModal({ day, streak, onClose, onReview }) {
   dialog.append(
     h("p", { class: "modal__eyebrow" }, day.date),
     h("h2", { id: "result-title", class: "modal__score" }, `${score}`, h("small", {}, ` / ${total}`)),
-    h("p", { class: "modal__msg" }, `${MESSAGE[score]}${streak > 1 ? ` · ${streak}일 연속` : ""}`),
+    h("p", { class: "modal__msg" }, `${message(score, total)}${streak > 1 ? ` · ${streak}일 연속` : ""}`),
     h("ul", { class: "result" }, rows),
     h("div", { class: "modal__actions" },
       score < total && h("button", { class: "btn btn--primary", type: "button", onclick: () => { dialog.close(); onReview(); } }, "복습 노트 보기"),

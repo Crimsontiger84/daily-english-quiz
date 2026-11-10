@@ -113,6 +113,12 @@ ul { padding: 0; list-style: none; }
 .tag { font-size: 0.8rem; font-weight: 700; padding: 4px 10px; border-radius: 999px; }
 .tag--diary { color: var(--diary); background: var(--diary-bg); }
 .tag--phrasal { color: var(--phrasal); background: var(--phrasal-bg); }
+.card__tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag--review { color: var(--no); background: var(--no-bg); }
+.card__ask { color: var(--ink-soft); font-size: 0.9rem; }
+.choices--stack { grid-template-columns: 1fr; }
+.choices--stack .choice { font-size: 1rem; padding: 8px 14px; text-align: left; }
+.view__lead { color: var(--ink-soft); font-size: 0.9rem; }
 .card__sentence { font-size: 1.3rem; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
 .card__prompt { font-size: 1.15rem; font-weight: 600; line-height: 1.5; }
 .card__ko, .card__hint, .card__from { color: var(--ink-soft); }

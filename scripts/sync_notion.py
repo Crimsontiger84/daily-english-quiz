@@ -45,31 +45,38 @@ def check_diary(entries):
     return errors
 
 
-def check_phrasals(entries):
+def check_phrasals(groups):
     errors, seen = [], set()
-    for p in entries:
-        pid = p.get("id", "?")
-        if pid in seen:
-            errors.append(f"phrasal {pid}: id 중복")
-        seen.add(pid)
-        for key in ("phrase", "particle", "meaning", "sentence", "sentenceKo", "situation", "model"):
-            if not p.get(key):
-                errors.append(f"phrasal {pid}: {key} 없음")
-        if p.get("sentence", "").count("___") != 1:
-            errors.append(f"phrasal {pid}: sentence에 ___ 가 정확히 1개여야 함")
-        if p.get("phrase") and p.get("particle") and not p["phrase"].endswith(p["particle"]):
-            errors.append(f"phrasal {pid}: phrase가 particle로 끝나지 않음")
+    for g in groups:
+        phrase = g.get("phrase", "?")
+        if phrase in seen:
+            errors.append(f"phrasal {phrase}: phrase 중복")
+        seen.add(phrase)
+        if not g.get("meaning"):
+            errors.append(f"phrasal {phrase}: meaning 없음")
+        if not g.get("examples"):
+            errors.append(f"phrasal {phrase}: examples 없음")
+        for ex in g.get("examples", []):
+            if len(ex) != 2 or not all(ex):
+                errors.append(f"phrasal {phrase}: 예문은 [영어, 한국어] 쌍이어야 함")
+                continue
+            blanks = CLOZE.findall(ex[0])
+            if len(blanks) != 1:
+                errors.append(f"phrasal {phrase}: 예문에 {{{{ }}}} 빈칸이 정확히 1개여야 함 — {ex[0]}")
+            elif blanks[0].strip("{}") not in phrase:
+                errors.append(f"phrasal {phrase}: 빈칸이 구동사의 전치사와 다름 — {ex[0]}")
     return errors
 
 
 def main():
     diary = load("diary.json")["entries"]
-    phrasals = load("phrasal_verbs.json")["entries"]
+    phrasals = load("phrasal_verbs.json")["groups"]
     errors = check_diary(diary) + check_phrasals(phrasals)
 
     cloze = sum(1 for e in diary if e.get("cloze"))
     write = sum(1 for e in diary if e.get("expr"))
-    print(f"diary: {len(diary)}건 (빈칸 {cloze}, 영작 {write}) / phrasal: {len(phrasals)}건")
+    examples = sum(len(g.get("examples", [])) for g in phrasals)
+    print(f"diary: {len(diary)}건 (빈칸 {cloze}, 영작 {write}) / phrasal: {len(phrasals)}개 구동사, 예문 {examples}개")
     print(f"마지막 동기화 일기: {max(e['id'] for e in diary)} — 이후 날짜를 Notion MCP로 가져오면 됨")
     for err in errors:
         print("ERROR", err)

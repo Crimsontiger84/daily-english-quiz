@@ -1,7 +1,7 @@
 import { h } from "./dom.js";
 
-// 복습 노트: 틀린 문항 목록. "외웠어요"를 누르면 노트에서 지운다.
-export function ReviewNote({ items, onRemove, onBack }) {
+// 복습 노트: 틀린 문항 목록. "다시 풀기"로 전부 다시 풀 수 있고, 맞히거나 "외웠어요"를 누르면 노트에서 빠진다.
+export function ReviewNote({ items, scheduled, onRemove, onBack, onRetry }) {
   const list = items.length
     ? h("ul", { class: "review" }, items.map((r) =>
         h("li", { class: "review__item" },
@@ -20,6 +20,8 @@ export function ReviewNote({ items, onRemove, onBack }) {
       h("h2", {}, "복습 노트"),
       h("span", { class: "view__count" }, `${items.length}개`)
     ),
+    h("p", { class: "view__lead" }, `틀린 표현은 1 → 3 → 7 → 14일 간격으로 오늘의 퀴즈에 다시 나옵니다. 현재 예약 ${scheduled}개.`),
+    items.length ? h("button", { class: "btn btn--primary btn--big", type: "button", onclick: onRetry }, `지금 다시 풀기 (${items.length}문항)`) : null,
     list
   );
 }
