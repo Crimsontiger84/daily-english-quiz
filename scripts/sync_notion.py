@@ -32,9 +32,12 @@ def check_diary(entries):
         seen.add(eid)
         if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", eid):
             errors.append(f"diary {eid}: id는 YYYY-MM-DD 형식이어야 함")
-        for key in ("word", "meaning"):
-            if not e.get(key):
-                errors.append(f"diary {eid}: {key} 없음")
+        if bool(e.get("word")) != bool(e.get("meaning")):
+            errors.append(f"diary {eid}: word와 meaning은 함께 있어야 함")
+        if not e.get("word") and not e.get("expr"):
+            errors.append(f"diary {eid}: word도 expr도 없음")
+        if e.get("cloze") and not e.get("word"):
+            errors.append(f"diary {eid}: cloze가 있으면 word가 필요함")
         if e.get("cloze"):
             if len(CLOZE.findall(e["cloze"])) != 1:
                 errors.append(f"diary {eid}: cloze에 {{{{ }}}} 빈칸이 정확히 1개여야 함")

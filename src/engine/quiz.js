@@ -81,31 +81,34 @@ export function buildDailySet(date, diary, phrasalGroups, recentIds = [], dueKey
   const dueOf = (kind) => new Set(dueKeys.filter((k) => k.startsWith(`${kind}:`)).map((k) => k.slice(kind.length + 1)));
   const byNewest = diary.slice().sort((a, b) => b.id.localeCompare(a.id));
   const used = new Set();
-  const byWord = (e) => e.word.toLowerCase(); // 같은 표현이 하루에 두 번 나오지 않게
+  const byWord = (e) => (e.word ?? e.id).toLowerCase(); // 같은 표현이 하루에 두 번 나오지 않게
+  const withWord = byNewest.filter((e) => e.word && e.meaning); // 단어 없이 주요 표현만 있는 날도 있다
 
   // ── 다이어리: 빈칸 쓰기 2 (복습 예정 우선, 없으면 1번은 최근 일기 10건에서)
-  const clozePool = byNewest.filter((e) => e.cloze);
+  const clozePool = withWord.filter((e) => e.cloze);
   const wordDue = dueOf("word");
   const clozes = pick(clozePool.slice(0, 10), wordDue.size ? 0 : 1, rnd, { avoid, used, key: byWord });
   clozes.push(...pick(clozePool, 2 - clozes.length, rnd, { avoid, due: wordDue, used, key: byWord }));
   // ── 다이어리: 4지선다 2
-  const mcs = pick(byNewest, 2, rnd, { avoid, used, key: byWord });
+  const mcs = pick(withWord, 2, rnd, { avoid, used, key: byWord });
   // ── 다이어리: 영작 2
   const writes = pick(byNewest.filter((e) => e.expr && e.exprKo), 2, rnd, { avoid, due: dueOf("expr"), used: new Set(clozes.map((c) => c.item.id)) });
 
-  const from = (e) => `${e.id} · ${e.title}`;
+  const from = (e) => (e.title ? `${e.id} · ${e.title}` : e.id);
+  const meanings = withWord.map((e) => e.meaning);
+  const words = withWord.map((e) => e.word);
   const [m1, m2] = mcs.map((m) => m.item);
   const diaryQs = [
     {
       id: `d-meaning-${m1.id}`, src: m1.id, srs: `word:${m1.id}`, part: "diary", type: "choice",
       label: "오늘의 단어 · 뜻 고르기", ask: "이 표현의 뜻은?",
-      text: m1.word, choices: options(m1.meaning, diary.map((e) => e.meaning), rnd), answer: m1.meaning,
+      text: m1.word, choices: options(m1.meaning, meanings, rnd), answer: m1.meaning,
       full: `${m1.word} — ${m1.meaning}`, explain: m1.cloze ? parseCloze(m1.cloze).full : null, from: from(m1),
     },
     {
       id: `d-word-${m2.id}`, src: m2.id, srs: `word:${m2.id}`, part: "diary", type: "choice",
       label: "오늘의 단어 · 표현 고르기", ask: "이 뜻에 맞는 표현은?",
-      text: m2.meaning, choices: options(m2.word, diary.map((e) => e.word), rnd), answer: m2.word,
+      text: m2.meaning, choices: options(m2.word, words, rnd), answer: m2.word,
       full: `${m2.word} — ${m2.meaning}`, explain: m2.cloze ? parseCloze(m2.cloze).full : null, from: from(m2),
     },
     ...clozes.map(({ item: e, review }) => ({

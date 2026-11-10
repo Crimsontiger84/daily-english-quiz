@@ -31,15 +31,17 @@ Claude Code가 관리한다. 엔진(`src/engine/`)이 실제로 하는 일을 �
 
 ## 데이터
 
-### `docs/data/diary.json` — Notion `[2026]English Diary`
+### `docs/data/diary.json` — Notion `[2026]English Diary` 59건 + `[2025]English Diary` 96건
 
-| 필드 | 출처 | 설명 |
+2025 DB는 2025-08-05 ~ 12-31분만 쓴다(6~7월은 속성이 비어 있다). 2025는 예문이 "비고" 칸에 있고, 단어 없이 주요 표현만 있는 날이 많다.
+
+| 필드 | 출처(2026 / 2025) | 설명 |
 |---|---|---|
-| `id` | 날짜 | `YYYY-MM-DD` |
-| `title` | 제목 | 일기 제목 |
-| `word` | Daily word | 오늘의 단어 |
-| `cloze` | 예문 | 정답 부분을 `{{ }}`로 감싼 문장. 원문의 문법 오류는 교정했다. 없으면 `null` |
-| `expr` | 주요표현 | 영작 모범 답안. 없으면 `null` |
+| `id` | 날짜 / 날짜 1 | `YYYY-MM-DD` |
+| `title` | 제목 / 없음 | 일기 제목. 2025는 제목이 날짜라서 `null` |
+| `word` | Daily word / daily word | 오늘의 단어. 없으면 `null`(영작 문항에만 쓰인다) |
+| `cloze` | 예문 / 비고 또는 주요 표현 | 정답 부분을 `{{ }}`로 감싼 문장. 원문의 문법 오류는 교정했다. 없으면 `null` |
+| `expr` | 주요표현 / 주요 표현 | 영작 모범 답안. 없으면 `null` |
 | `meaning`, `clozeKo`, `exprKo` | Claude 작성 | 한국어 뜻·해석 |
 
 ### `docs/data/phrasal_verbs.json` — Google Docs 「구동사 활용법 총정리 (Ver 01 ~ Ver 10)」
