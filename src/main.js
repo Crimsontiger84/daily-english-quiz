@@ -8,6 +8,7 @@ import * as store from "./engine/store.js";
 
 const app = document.getElementById("app");
 const today = todayKey(); // 학습일: 오전 8시에 바뀐다
+const SET_VERSION = 3; // 문항 구성을 바꿀 때 올린다
 let day; // {date, questions, answers: [{correct, your}], done}
 
 async function loadJson(path) {
@@ -18,13 +19,15 @@ async function loadJson(path) {
 
 async function init() {
   day = store.loadDay(today);
+  // 문항 구성이 바뀌었으면, 아직 풀기 시작하지 않은 세트는 새 구성으로 다시 만든다.
+  if (day && day.v !== SET_VERSION && day.answers.length === 0) day = null;
   if (!day) {
     const [diary, phrasal] = await Promise.all([
       loadJson("docs/data/diary.json"),
       loadJson("docs/data/phrasal_verbs.json"),
     ]);
     const set = buildDailySet(today, diary.entries, phrasal.groups, store.recentSrcIds(), store.dueKeys(today));
-    day = { ...set, answers: [], done: false };
+    day = { ...set, v: SET_VERSION, answers: [], done: false };
     store.saveDay(day); // 하루 1세트 캐싱
   }
   showHome();
