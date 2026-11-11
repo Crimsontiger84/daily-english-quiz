@@ -52,7 +52,16 @@ async function flushOutbox() {
 function queueLog() {
   const payload = resultPayload(day, store.deviceId());
   store.saveOutbox([...store.loadOutbox().filter((p) => p.runId !== payload.runId), payload]);
-  flushOutbox();
+  return flushOutbox();
+}
+
+// 이 기기에 남아 있는 끝낸 퀴즈를 모두 보낸다(연결 전에 푼 것 포함). 이미 저장된 기록은 시트 쪽에서 걸러진다.
+function queueAllDone() {
+  const device = store.deviceId();
+  const all = store.loadDoneDays().map((d) => resultPayload(d, device));
+  const ids = new Set(all.map((p) => p.runId));
+  store.saveOutbox([...store.loadOutbox().filter((p) => !ids.has(p.runId)), ...all]);
+  return flushOutbox().then(() => all.length);
 }
 
 // 연동 링크를 주소 뒤에 붙여 열면(#log=…) 그 기기에 저장하고 주소에서 지운다.
@@ -116,10 +125,10 @@ function showHome() {
   ));
 }
 
-function showLogSettings() {
+function showLogSettings(note) {
   const cfg = store.loadLogConfig();
   const input = h("input", { class: "input", type: "url", placeholder: "https://script.google.com/macros/s/…/exec?key=…", autocomplete: "off", autocapitalize: "off", spellcheck: false, "aria-label": "연동 링크" });
-  const msg = h("p", { class: "view__lead", "aria-live": "polite" }, cfg ? "현재 연결되어 있어요. 퀴즈를 끝내면 결과가 자동으로 시트에 저장됩니다." : "아직 연결되지 않았어요.");
+  const msg = h("p", { class: "view__lead", "aria-live": "polite" }, typeof note === "string" ? note : cfg ? "현재 연결되어 있어요. 퀴즈를 끝내면 결과가 자동으로 시트에 저장됩니다." : "아직 연결되지 않았어요.");
 
   const save = async () => {
     const next = logsync.parseLink(input.value);
@@ -128,15 +137,35 @@ function showLogSettings() {
     try {
       if (!(await logsync.test(next))) { msg.textContent = "연동 키가 맞지 않아요. 링크를 다시 확인해 주세요."; return; }
       store.saveLogConfig(next);
-      msg.textContent = "연결됐어요. 밀린 기록이 있으면 지금 보냅니다.";
       input.value = "";
-      flushOutbox();
+      const n = await queueAllDone();
+      showLogSettings(`연결됐어요. 이 기기에 있던 결과 ${n}건을 보냈습니다. ${logNote}`);
     } catch {
-      // 일부 브라우저는 확인 응답을 읽지 못한다. 저장은 하고, 실제 기록으로 확인하게 한다.
+      // 일부 브라우저는 확인 응답을 읽지 못한다. 저장은 하고, 테스트 전송으로 확인하게 한다.
       store.saveLogConfig(next);
-      msg.textContent = "링크를 저장했어요. 연결 확인 응답은 읽지 못했으니, 퀴즈를 한 번 끝낸 뒤 시트에 기록이 생기는지 확인해 주세요.";
-      flushOutbox();
+      showLogSettings("링크를 저장했어요. 연결 확인 응답은 읽지 못했으니 아래 '테스트 기록 보내기'로 확인해 주세요.");
     }
+  };
+
+  // 시트에 실제로 한 줄이 써지는지 확인한다. 서버가 돌려준 오류를 그대로 보여 준다.
+  const sendTest = async () => {
+    msg.textContent = "테스트 기록을 보내는 중…";
+    try {
+      const result = await logsync.send(store.loadLogConfig(), {
+        runId: `test-${Date.now()}`, date: today, device: "연결 테스트", score: 0, total: 0, items: [],
+      });
+      msg.textContent = result === "saved"
+        ? "저장 확인됨. 시트의 '요약' 탭에 '연결 테스트' 줄이 생겼어요(지워도 됩니다)."
+        : "보내긴 했지만 응답을 읽지 못했어요. 시트의 '요약' 탭에 '연결 테스트' 줄이 생겼는지 확인해 주세요.";
+    } catch (err) {
+      msg.textContent = `저장 실패: ${err.message}`;
+    }
+  };
+
+  const resendAll = async () => {
+    msg.textContent = "보내는 중…";
+    const n = await queueAllDone();
+    msg.textContent = n ? `결과 ${n}건을 보냈습니다. ${logNote}` : "이 기기에 끝낸 퀴즈 기록이 없어요. 오늘 퀴즈를 끝내면 자동으로 저장됩니다.";
   };
 
   show(h("section", { class: "view" },
@@ -151,7 +180,8 @@ function showLogSettings() {
       h("button", { class: "btn btn--primary", type: "submit" }, cfg ? "링크 바꾸기" : "연결하기")
     ),
     cfg && h("button", { class: "btn btn--ghost", type: "button", onclick: () => { store.saveLogConfig(null); logNote = ""; showLogSettings(); } }, "연결 끊기"),
-    day.done && cfg && h("button", { class: "btn btn--ghost", type: "button", onclick: () => { queueLog(); msg.textContent = "오늘 결과를 다시 보냈어요."; } }, "오늘 결과 다시 보내기")
+    cfg && h("button", { class: "btn btn--ghost", type: "button", onclick: sendTest }, "테스트 기록 보내기"),
+    cfg && h("button", { class: "btn btn--ghost", type: "button", onclick: resendAll }, "지난 결과 모두 다시 보내기")
   ));
 }
 

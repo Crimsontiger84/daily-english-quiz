@@ -29,6 +29,20 @@ export function addDays(dateKey, n) {
 export const loadDay = (date) => read(`day.${date}`, null);
 export const saveDay = (day) => write(`day.${day.date}`, day);
 
+// 이 기기에 저장된, 끝까지 푼 날의 기록 전부(날짜순)
+export function loadDoneDays() {
+  const days = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k.startsWith(`${PREFIX}day.`)) continue;
+      const d = JSON.parse(localStorage.getItem(k));
+      if (d?.done && d.answers?.length === d.questions?.length) days.push(d);
+    }
+  } catch { /* 저장소를 못 읽으면 빈 목록 */ }
+  return days.sort((a, b) => a.date.localeCompare(b.date));
+}
+
 // history: [{date, score, total, srcIds}] 최신순, 최대 60일
 export const loadHistory = () => read("history", []);
 export function recordResult(date, score, total, srcIds) {
