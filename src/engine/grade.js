@@ -5,6 +5,7 @@ export function normalize(text) {
     .toLowerCase()
     .replace(/[‘’]/g, "'")
     .replace(/[^a-z0-9' -]/g, " ")
+    .replace(/\s+'/g, "'") // 휴대폰 자판이 "I 'm"처럼 띄어 쓴 경우도 같은 답으로 본다
     .replace(/\s+/g, " ")
     .trim();
 }
